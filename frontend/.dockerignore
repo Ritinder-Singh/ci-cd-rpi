@@ -1,0 +1,15 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+.git
+.gitignore
+README.md
+Jenkinsfile
+.vscode
+.idea
+*.md
+.DS_Store

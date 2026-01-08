@@ -1,0 +1,115 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'registry.lan:5000'
+        IMAGE_NAME = 'web'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        COMPOSE_PROJECT = '/home/ritinder/developer/ci-cd-rpi'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "Checking out code from SCM..."
+                checkout scm
+                sh 'cd frontend && ls -la'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('frontend') {
+                    echo "Running Flutter tests..."
+                    script {
+                        // Check if Flutter is available
+                        def flutterAvailable = sh(
+                            script: 'command -v flutter',
+                            returnStatus: true
+                        ) == 0
+
+                        if (flutterAvailable) {
+                            sh '''
+                                flutter --version
+                                flutter pub get
+                                flutter test
+                            '''
+                        } else {
+                            echo "Flutter not installed in Jenkins. Skipping tests."
+                            echo "Tests will run during Docker build."
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                dir('frontend') {
+                    echo "Building Docker image..."
+                    echo "This may take several minutes on first build..."
+                    sh """
+                        docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                echo "Pushing images to local registry..."
+                sh """
+                    docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying frontend service..."
+                sh """
+                    cd ${COMPOSE_PROJECT}
+                    docker-compose pull web
+                    docker-compose up -d web
+                """
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo "Verifying deployment..."
+                sh '''
+                    echo "Waiting for frontend to be ready..."
+                    sleep 10
+
+                    echo "Testing frontend..."
+                    curl -f http://localhost/ || exit 1
+
+                    echo "Testing API proxy..."
+                    curl -f http://localhost/api/v1/hello || exit 1
+
+                    echo "Frontend is accessible and API proxy is working!"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Frontend deployment successful!"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+            echo "Access at: http://localhost/"
+        }
+        failure {
+            echo "❌ Frontend deployment failed!"
+            echo "Build Number: ${BUILD_NUMBER}"
+            sh 'docker logs web || true'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}

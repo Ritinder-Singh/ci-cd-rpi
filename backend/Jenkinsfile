@@ -1,0 +1,104 @@
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'registry.lan:5000'
+        IMAGE_NAME = 'backend'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        COMPOSE_PROJECT = '/home/ritinder/developer/ci-cd-rpi'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "Checking out code from SCM..."
+                checkout scm
+                sh 'cd backend && ls -la'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('backend') {
+                    echo "Running tests..."
+                    sh '''
+                        python3 -m venv venv
+                        . venv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+                        pytest tests/ -v --tb=short
+                    '''
+                }
+            }
+        }
+
+        stage('Build Image') {
+            steps {
+                dir('backend') {
+                    echo "Building Docker image..."
+                    sh """
+                        docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Push to Registry') {
+            steps {
+                echo "Pushing images to local registry..."
+                sh """
+                    docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                """
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying backend service..."
+                sh """
+                    cd ${COMPOSE_PROJECT}
+                    docker-compose pull backend
+                    docker-compose up -d backend
+                """
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo "Verifying deployment..."
+                sh '''
+                    echo "Waiting for backend to be ready..."
+                    sleep 10
+
+                    echo "Testing health endpoint..."
+                    curl -f http://localhost:5001/health || exit 1
+
+                    echo "Testing API endpoint..."
+                    curl -f http://localhost:5001/api/v1/hello || exit 1
+
+                    echo "Backend is healthy!"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Backend deployment successful!"
+            echo "Build Number: ${BUILD_NUMBER}"
+            echo "Image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+        }
+        failure {
+            echo "❌ Backend deployment failed!"
+            echo "Build Number: ${BUILD_NUMBER}"
+            sh 'docker logs backend || true'
+        }
+        always {
+            // Cleanup
+            sh 'rm -rf backend/venv || true'
+            cleanWs()
+        }
+    }
+}
