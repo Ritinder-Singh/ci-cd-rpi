@@ -5,7 +5,9 @@ pipeline {
         REGISTRY = 'registry.lan:5000'
         IMAGE_NAME = 'backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        COMPOSE_PROJECT = '/home/pi/ci-cd-rpi'
+        HOST_USER = 'pi'
+        HOST_IP = '192.168.1.9'
+        PROJECT_DIR = '/home/pi/ci-cd-rpi'
     }
 
     stages {
@@ -13,37 +15,21 @@ pipeline {
             steps {
                 echo "Checking out code from SCM..."
                 checkout scm
-                sh 'cd backend && ls -la'
+                sh 'ls -la'
             }
         }
 
-        stage('Test') {
+        stage('Build and Push') {
             steps {
-                dir('backend') {
-                    echo "Skipping tests - tests run in Docker build stage"
-                    echo "To run tests locally: pytest tests/ -v"
-                }
-            }
-        }
-
-        stage('Build Image') {
-            steps {
-                dir('backend') {
-                    echo "Building Docker image..."
-                    sh """
-                        docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
-                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
-                    """
-                }
-            }
-        }
-
-        stage('Push to Registry') {
-            steps {
-                echo "Pushing images to local registry..."
+                echo "Building and pushing image on host..."
                 sh """
-                    docker push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${REGISTRY}/${IMAGE_NAME}:latest
+                    ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_IP} '
+                        cd ${PROJECT_DIR}/backend
+                        podman build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
+                        podman tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${REGISTRY}/${IMAGE_NAME}:latest
+                        podman push ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+                        podman push ${REGISTRY}/${IMAGE_NAME}:latest
+                    '
                 """
             }
         }
@@ -52,19 +38,11 @@ pipeline {
             steps {
                 echo "Deploying backend service..."
                 sh """
-                    # Pull the latest image
-                    docker pull ${REGISTRY}/${IMAGE_NAME}:latest || true
-
-                    # Stop and remove old container
-                    docker stop backend || true
-                    docker rm backend || true
-
-                    # Start new container
-                    docker run -d --name backend \
-                        --network cicd-rpi_default \
-                        -p 5001:5001 \
-                        -e ENVIRONMENT=production \
-                        ${REGISTRY}/${IMAGE_NAME}:latest
+                    ssh -o StrictHostKeyChecking=no ${HOST_USER}@${HOST_IP} '
+                        cd ${PROJECT_DIR}
+                        podman-compose pull backend
+                        podman-compose up -d backend
+                    '
                 """
             }
         }
@@ -77,10 +55,10 @@ pipeline {
                     sleep 10
 
                     echo "Testing health endpoint..."
-                    curl -f http://localhost:5001/health || exit 1
+                    curl -f http://192.168.1.9:5001/health || exit 1
 
                     echo "Testing API endpoint..."
-                    curl -f http://localhost:5001/api/v1/hello || exit 1
+                    curl -f http://192.168.1.9:5001/api/v1/hello || exit 1
 
                     echo "Backend is healthy!"
                 '''
@@ -97,11 +75,8 @@ pipeline {
         failure {
             echo "❌ Backend deployment failed!"
             echo "Build Number: ${BUILD_NUMBER}"
-            sh 'docker logs backend || true'
         }
         always {
-            // Cleanup
-            sh 'rm -rf backend/venv || true'
             cleanWs()
         }
     }
