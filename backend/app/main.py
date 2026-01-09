@@ -8,6 +8,8 @@ import psutil
 from datetime import datetime
 
 from .database import init_db, get_db
+# Import models so they are registered with SQLAlchemy
+from . import models
 
 app = FastAPI(
     title="CI/CD Backend API",
