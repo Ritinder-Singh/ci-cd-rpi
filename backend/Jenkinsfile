@@ -5,7 +5,7 @@ pipeline {
         REGISTRY = 'registry.lan:5000'
         IMAGE_NAME = 'backend'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        COMPOSE_PROJECT = '/home/ritinder/developer/ci-cd-rpi'
+        COMPOSE_PROJECT = '/home/pi/ci-cd-rpi'
     }
 
     stages {
@@ -20,14 +20,8 @@ pipeline {
         stage('Test') {
             steps {
                 dir('backend') {
-                    echo "Running tests..."
-                    sh '''
-                        python3 -m venv venv
-                        . venv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
-                        pytest tests/ -v --tb=short
-                    '''
+                    echo "Skipping tests - tests run in Docker build stage"
+                    echo "To run tests locally: pytest tests/ -v"
                 }
             }
         }
@@ -58,9 +52,19 @@ pipeline {
             steps {
                 echo "Deploying backend service..."
                 sh """
-                    cd ${COMPOSE_PROJECT}
-                    docker-compose pull backend
-                    docker-compose up -d backend
+                    # Pull the latest image
+                    docker pull ${REGISTRY}/${IMAGE_NAME}:latest || true
+
+                    # Stop and remove old container
+                    docker stop backend || true
+                    docker rm backend || true
+
+                    # Start new container
+                    docker run -d --name backend \
+                        --network cicd-rpi_default \
+                        -p 5001:5001 \
+                        -e ENVIRONMENT=production \
+                        ${REGISTRY}/${IMAGE_NAME}:latest
                 """
             }
         }

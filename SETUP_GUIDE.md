@@ -259,8 +259,8 @@ a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
 
 1. Open a web browser
 2. Navigate to:
-   - If on the Pi: `http://localhost:8080`
-   - From another computer: `http://YOUR_PI_IP:8080`
+   - If on the Pi: `http://localhost:8080/jenkins`
+   - From another computer: `http://YOUR_PI_IP:8080/jenkins`
      (Find Pi IP with: `hostname -I`)
 
 ### Step 3: Complete Setup Wizard
@@ -281,7 +281,7 @@ a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
 5. Click "Save and Continue"
 
 **Instance Configuration**:
-1. Jenkins URL: Leave as default or set to `http://YOUR_PI_IP:8080`
+1. Jenkins URL: Leave as default or set to `http://YOUR_PI_IP:8080/jenkins`
 2. Click "Save and Finish"
 
 **Start Using Jenkins**:
