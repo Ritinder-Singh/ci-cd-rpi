@@ -1,0 +1,40 @@
+  {
+    "dashboard": {
+      "title": "CI/CD Platform Overview",
+      "tags": ["cicd"],
+      "timezone": "browser",
+      "refresh": "10s",
+      "panels": [
+        {
+          "id": 1,
+          "type": "stat",
+          "title": "Services Up",
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 0},
+          "targets": [{
+            "expr": "up",
+            "legendFormat": "{{job}}"
+          }]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Container CPU %",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+          "targets": [{
+            "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100",
+            "legendFormat": "{{name}}"
+          }]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Container Memory MB",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+          "targets": [{
+            "expr": "container_memory_usage_bytes{name!=\"\"} / 1024 / 1024",
+            "legendFormat": "{{name}}"
+          }]
+        }
+      ]
+    }
+  }

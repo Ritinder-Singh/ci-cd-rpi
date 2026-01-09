@@ -46,7 +46,7 @@ scrape_configs:
   # Jenkins metrics (requires Prometheus plugin)
   # Note: Install Prometheus Metrics Plugin in Jenkins first
   - job_name: 'jenkins'
-    metrics_path: '/prometheus'
+    metrics_path: '/jenkins/prometheus/'
     static_configs:
       - targets: ['jenkins:8080']
         labels:

@@ -11,7 +11,7 @@ services:
       - "50000:50000"
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /run/podman/podman.sock:/var/run/docker.sock
+      - /run/user/1000/podman/podman.sock:/var/run/docker.sock
       - /usr/bin/podman:/usr/bin/docker
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
@@ -49,7 +49,7 @@ services:
     container_name: web
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "8082:80"
     environment:
       - API_URL=http://backend:5001
     extra_hosts:
@@ -69,7 +69,7 @@ services:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/lib/containers/:/var/lib/containers:ro
       - /dev/disk/:/dev/disk:ro
 
   prometheus:
