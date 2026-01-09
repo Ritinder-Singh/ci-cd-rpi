@@ -49,8 +49,8 @@ async def hello():
         dict: Welcome message with version and timestamp
     """
     return {
-        "message": "Hello from Raspberry Pi CI/CD Platform!",
-        "version": "1.0.0",
+        "message": "Hello from Raspberry Pi CI/CD Platform - Automated Deployment!",
+        "version": "1.0.1",
         "timestamp": datetime.utcnow().isoformat(),
     }
 
